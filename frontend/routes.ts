@@ -24,7 +24,12 @@ export const views: ViewRoute[] = [
       await import('./views/about/about-view');
     },
   },
+  {
+    path: 'login',
+    redirect: '/'
+  }
 ];
+
 export const routes: ViewRoute[] = [
   {
     path: '',

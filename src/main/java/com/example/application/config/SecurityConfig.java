@@ -42,6 +42,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Bean
     JwtDecoder jwtDecoder() {
+        // JWT decoder trusting a symmetric secret key to verify JWTs.
         return NimbusJwtDecoder.withSecretKey(SecretKeySource.get()).build();
     }
 
@@ -51,9 +52,10 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         // @formatter:off
         auth
                 .inMemoryAuthentication()
-                .withUser("user").password("{noop}user").roles("USER")
+                .withUser("user").password("{noop}user").roles("user")
                 .and()
-                .withUser("admin").password("{noop}admin").roles("USER", "ADMIN");
+                .withUser("admin").password("{noop}admin").roles("user",
+                "admin");
         // @formatter:on
     }
 

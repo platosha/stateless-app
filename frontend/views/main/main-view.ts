@@ -9,6 +9,8 @@ import { router } from '../../index';
 import { views } from '../../routes';
 import { appStore } from '../../stores/app-store';
 import { Layout } from '../view';
+import {BeforeEnterObserver} from "@vaadin/router";
+import {LoginView} from "Frontend/views/login/login-view";
 
 interface RouteInfo {
   path: string;
@@ -16,7 +18,7 @@ interface RouteInfo {
 }
 
 @customElement('main-view')
-export class MainView extends Layout {
+export class MainView extends Layout implements BeforeEnterObserver {
   render() {
     return html`
       <vaadin-app-layout primary-section="drawer">
@@ -66,5 +68,9 @@ export class MainView extends Layout {
 
   private getSelectedViewRoute(): number {
     return this.getMenuRoutes().findIndex((viewRoute) => viewRoute.path == appStore.location);
+  }
+
+  async onBeforeEnter() {
+    await LoginView.openAsPopup();
   }
 }

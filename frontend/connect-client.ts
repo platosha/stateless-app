@@ -4,19 +4,25 @@ import {
   MiddlewareContext,
   MiddlewareNext
 } from '@vaadin/flow-frontend';
+import {authenticationStore} from "Frontend/stores/authentication-store";
 
 const client = new ConnectClient({prefix: 'connect'});
 
 class JwtAuthorizationMiddleware implements MiddlewareClass {
+  constructor(private tokenCallback: () => string | void | Promise<string | void>) {
+  }
+
   async invoke(context: MiddlewareContext, next: MiddlewareNext) {
-    const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiaXNzdWVyIjoiU3RhdGVsZXNzYXBwIiwibmFtZSI6IlVzZXIiLCJzY29wZSI6InVzZXIiLCJpYXQiOjE2MTk3MTAzNDczMDJ9.744-rFDiBLI-r-AHZnTWoMZT323lBQ0-N12GUBbN3tU';
-    context.request.headers.append(
-      'Authorization',
-      `Bearer ${token}`
-    );
+    const token = await this.tokenCallback();
+    if (token) {
+      context.request.headers.append(
+        'Authorization',
+        `Bearer ${token}`
+      );
+    }
     return next(context);
   }
 }
 
-client.middlewares.push(new JwtAuthorizationMiddleware());
+client.middlewares.push(new JwtAuthorizationMiddleware(() => authenticationStore.access_token));
 export default client;

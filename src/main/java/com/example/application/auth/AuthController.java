@@ -2,6 +2,7 @@ package com.example.application.auth;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -17,9 +18,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.core.OAuth2AccessToken;
-import org.springframework.security.oauth2.core.endpoint.OAuth2AccessTokenResponse;
-import org.springframework.security.oauth2.core.endpoint.OAuth2AccessTokenResponseMapConverter;
 import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -38,7 +36,7 @@ public class AuthController {
         this.httpServletRequest = httpServletRequest;
     }
 
-    @PostMapping(value = "/token", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    @PostMapping(value = "/auth/token", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     @ResponseBody
     public Map<String, String> getToken(
             @RequestParam("grant_type") String grantType,
@@ -87,11 +85,10 @@ public class AuthController {
             throw new RuntimeException("invalid_grant");
         }
 
-        OAuth2AccessTokenResponse response =
-                OAuth2AccessTokenResponse.withToken(signedJWT.serialize())
-                .tokenType(OAuth2AccessToken.TokenType.BEARER)
-                .expiresIn(EXPIRES_IN).build();
-        return new OAuth2AccessTokenResponseMapConverter().convert(response);
+        final Map<String, String> response = new HashMap<>();
+        response.put("access_token", signedJWT.serialize());
+        response.put("token_type", "Bearer");
+        response.put("expires_in", String.valueOf(EXPIRES_IN));
+        return response;
     }
-
 }
