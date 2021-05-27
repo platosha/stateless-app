@@ -12,8 +12,9 @@ import {
   RouterLocation
 } from '@vaadin/router';
 import type {LoginResult} from '@vaadin/flow-frontend';
-import {TokenClient} from "Frontend/auth/token-client";
-import {authenticationStore} from "Frontend/stores/authentication-store";
+import {
+  loginFormClient
+} from "Frontend/auth/token-client";
 
 @customElement('login-view')
 export class LoginView extends LitElement implements AfterEnterObserver {
@@ -71,7 +72,11 @@ export class LoginView extends LitElement implements AfterEnterObserver {
 
   async login(event: CustomEvent): Promise<LoginResult> {
     this.error = false;
-    const result = await authenticationStore.login(event.detail.username, event.detail.password);
+    const {
+      username,
+      password
+    } = event.detail;
+    const result = await loginFormClient.login(username, password);
     this.error = result.error;
     this.errorTitle = result.errorTitle || this.errorTitle;
     this.errorMessage = result.errorMessage || this.errorMessage;
