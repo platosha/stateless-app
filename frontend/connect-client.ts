@@ -19,7 +19,7 @@ export enum AuthorizationErrorType {
 
 class AuthorizationError extends Error {
   constructor(public type: AuthorizationError, public attributes: { readonly [key: string]: string } | undefined) {
-    super('Authorization e');
+    super('Authorization error');
   }
 }
 
@@ -37,13 +37,13 @@ export interface RequestContext {
 }
 
 export interface RequestAuthorizationStrategy {
-  authorize(context: RequestContext, requestAuthorizationActions: RequestAuthorizationActions): Promise<Response>
+  authorizeRequest(context: RequestContext, requestAuthorizationActions: RequestAuthorizationActions): Promise<Response>
 }
 
 const authorizationHeaderName = 'Authorization';
 
-class JwtAuthorizationMiddleware implements MiddlewareClass {
-  constructor(private strategy: RequestAuthorizationStrategy = loginFormClient) {
+class BearerAuthorizationMiddleware implements MiddlewareClass {
+  constructor(private strategy: RequestAuthorizationStrategy) {
   }
 
   async invoke(context: MiddlewareContext, next: MiddlewareNext) {
@@ -65,9 +65,15 @@ class JwtAuthorizationMiddleware implements MiddlewareClass {
       }
     }
 
-    return this.strategy.authorize(context, actions);
+    return this.strategy.authorizeRequest(context, actions);
   }
 }
 
-client.middlewares.push(new JwtAuthorizationMiddleware());
+class StatelessLoginFormClientMiddleware extends BearerAuthorizationMiddleware {
+  constructor() {
+    super(loginFormClient);
+  }
+}
+
+client.middlewares.push(new StatelessLoginFormClientMiddleware());
 export default client;

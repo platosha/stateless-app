@@ -9,13 +9,19 @@ export interface Authorization {
   access_token: string;
 }
 
-class OAuth2Client implements RequestAuthorizationStrategy {
-  private authorization: Authorization | undefined = undefined;
+export class OAuth2Client implements RequestAuthorizationStrategy {
+  protected authorization: Authorization | undefined = undefined;
+  protected serverRootUrl: URL;
 
-  constructor(private serverUrl: string = 'auth') {
+  constructor(serverRootUrl: URL | string = 'auth/') {
+    this.serverRootUrl = serverRootUrl instanceof URL ? serverRootUrl : new URL(serverRootUrl, document.baseURI);
   }
 
-  async token(body: URLSearchParams, requestOptions = {}): Promise<Authorization> {
+  protected get tokenUrl(): URL {
+    return new URL('./token', this.serverRootUrl);
+  }
+
+  protected async token(body: URLSearchParams, requestOptions = {}): Promise<Authorization> {
     const requestInit = {
       method: 'POST',
       headers: {
@@ -25,7 +31,8 @@ class OAuth2Client implements RequestAuthorizationStrategy {
       ...requestOptions
     };
 
-    const response = await (await fetch(this.serverUrl, requestInit)).json();
+    const request = new Request(String(this.tokenUrl), requestInit);
+    const response = await (await fetch(request)).json();
     if ('error' in response) {
       throw new Error(`Token response error ${response.error_type}: ${response.error_description}`);
     }
@@ -33,7 +40,7 @@ class OAuth2Client implements RequestAuthorizationStrategy {
     return this.authorization;
   }
 
-  async authorize(context: RequestContext, actions: RequestAuthorizationActions) {
+  async authorizeRequest(context: RequestContext, actions: RequestAuthorizationActions) {
     return this.authorization
       ? actions.withAuthorization(this.authorization)
       : actions.withoutAuthorization();
@@ -43,7 +50,11 @@ class OAuth2Client implements RequestAuthorizationStrategy {
 export class LoginFormClient extends OAuth2Client {
   async login(username: string, password: string): Promise<LoginResult> {
     try {
-      await this.token(new URLSearchParams({grant_type: 'password', username, password}));
+      await this.token(new URLSearchParams({
+        grant_type: 'password',
+        username,
+        password
+      }));
       return {
         error: false
       };
@@ -57,6 +68,7 @@ export class LoginFormClient extends OAuth2Client {
   }
 
   async logout() {
+    this.authorization = undefined;
   }
 }
 
