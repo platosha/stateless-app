@@ -18,8 +18,20 @@ export enum AuthorizationErrorType {
 }
 
 class AuthorizationError extends Error {
-  constructor(public type: AuthorizationError, public attributes: { readonly [key: string]: string } | undefined) {
-    super('Authorization error');
+  constructor(public type: AuthorizationErrorType, public attributes: { readonly [key: string]: string } | undefined) {
+    super(`Authorization error: ${type}`);
+  }
+}
+
+class InvalidTokenError extends AuthorizationError {
+  constructor(public attributes: { readonly [key: string]: string } | undefined) {
+    super(AuthorizationErrorType.INVALID_TOKEN, attributes);
+  }
+}
+
+class InsufficientScopeError extends AuthorizationError {
+  constructor(public attributes: { readonly [key: string]: string } | undefined) {
+    super(AuthorizationErrorType.INSUFFICIENT_SCOPE, attributes);
   }
 }
 
@@ -77,3 +89,45 @@ class StatelessLoginFormClientMiddleware extends BearerAuthorizationMiddleware {
 
 client.middlewares.push(new StatelessLoginFormClientMiddleware());
 export default client;
+
+// Example: using custom client
+
+class OAuth2Client {
+  public authorization: {
+    access_token: string,
+    refresh_token: string
+  } | undefined = undefined;
+
+  async refresh(): Promise<void> {
+  }
+}
+
+const oauth2Client = new OAuth2Client();
+
+class CustomAuthorizationStrategy implements RequestAuthorizationStrategy {
+  async authorizeRequest(context: RequestContext, actions: RequestAuthorizationActions): Promise<Response> {
+    return oauth2Client.authorization
+      ? actions.withAuthorization({access_token: oauth2Client.authorization.access_token})
+      : actions.withoutAuthorization();
+  }
+}
+
+new BearerAuthorizationMiddleware(new CustomAuthorizationStrategy());
+
+// Example: handle errors
+
+class RefreshAndRetryStrategy extends CustomAuthorizationStrategy {
+  async authorizeRequest(context: RequestContext, actions: RequestAuthorizationActions): Promise<Response> {
+    try {
+      return await super.authorizeRequest(context, actions);
+    } catch (error) {
+      if (error instanceof InvalidTokenError) {
+        await oauth2Client.refresh();
+        return this.authorizeRequest(context, actions);
+      }
+      throw error;
+    }
+  }
+}
+
+new BearerAuthorizationMiddleware(new CustomAuthorizationStrategy());
