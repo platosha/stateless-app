@@ -25,12 +25,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
-public class AuthController {
+public class StatelessLoginHandler {
     private AuthenticationManager authenticationManager;
 
     private HttpServletRequest httpServletRequest;
 
-    public AuthController(AuthenticationManager authenticationManager,
+    public StatelessLoginHandler(AuthenticationManager authenticationManager,
             HttpServletRequest httpServletRequest) {
         this.authenticationManager = authenticationManager;
         this.httpServletRequest = httpServletRequest;

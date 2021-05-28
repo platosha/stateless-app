@@ -16,6 +16,10 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtGra
 
 @EnableWebSecurity
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
+    //
+    // Configuration to enable JWT for endpoints
+    //
+
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         // @formatter:off
@@ -40,11 +44,19 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         return jwtAuthenticationConverter;
     }
 
+    //
+    // Use built-in secret key for JWT verification
+    //
+
     @Bean
     JwtDecoder jwtDecoder() {
         // JWT decoder trusting a symmetric secret key to verify JWTs.
         return NimbusJwtDecoder.withSecretKey(SecretKeySource.get()).build();
     }
+
+    //
+    // Configuration for StatelessLoginHandler
+    //
 
     @Override
     protected void configure(AuthenticationManagerBuilder auth)

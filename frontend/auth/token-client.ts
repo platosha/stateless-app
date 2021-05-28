@@ -40,6 +40,10 @@ export class OAuth2Client implements RequestAuthorizationStrategy {
     return this.authorization;
   }
 
+  get authorized(): boolean {
+    return !!this.authorization;
+  }
+
   async authorizeRequest(context: RequestContext, actions: RequestAuthorizationActions) {
     return this.authorization
       ? actions.withAuthorization(this.authorization)
@@ -47,7 +51,11 @@ export class OAuth2Client implements RequestAuthorizationStrategy {
   }
 }
 
-export class LoginFormClient extends OAuth2Client {
+export class StatelessLoginClient extends OAuth2Client {
+  constructor() {
+    super('auth/');
+  }
+
   async login(username: string, password: string): Promise<LoginResult> {
     try {
       await this.token(new URLSearchParams({
@@ -67,9 +75,9 @@ export class LoginFormClient extends OAuth2Client {
     }
   }
 
-  async logout() {
+  async logout(): Promise<void> {
     this.authorization = undefined;
   }
 }
 
-export const loginFormClient = new LoginFormClient();
+export const statelessLoginClient = new StatelessLoginClient();

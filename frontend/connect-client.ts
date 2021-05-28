@@ -6,7 +6,7 @@ import {
 } from '@vaadin/flow-frontend';
 import {
   Authorization,
-  loginFormClient,
+  statelessLoginClient,
 } from "Frontend/auth/token-client";
 
 const client = new ConnectClient({prefix: 'connect'});
@@ -81,33 +81,33 @@ class BearerAuthorizationMiddleware implements MiddlewareClass {
   }
 }
 
-class StatelessLoginFormClientMiddleware extends BearerAuthorizationMiddleware {
+class StatelessLoginClientMiddleware extends BearerAuthorizationMiddleware {
   constructor() {
-    super(loginFormClient);
+    super(statelessLoginClient);
   }
 }
 
-client.middlewares.push(new StatelessLoginFormClientMiddleware());
+client.middlewares.push(new StatelessLoginClientMiddleware());
 export default client;
 
 // Example: using custom client
 
-class OAuth2Client {
-  public authorization: {
-    access_token: string,
-    refresh_token: string
-  } | undefined = undefined;
+class DummyCustomOAuth2Client {
+  public readonly authorized = false;
+
+  async getAccessToken(): Promise<{access_token: string}> {
+    return {access_token: 'abc'};
+  }
 
   async refresh(): Promise<void> {
   }
 }
-
-const oauth2Client = new OAuth2Client();
+const oauth2Client = new DummyCustomOAuth2Client();
 
 class CustomAuthorizationStrategy implements RequestAuthorizationStrategy {
   async authorizeRequest(context: RequestContext, actions: RequestAuthorizationActions): Promise<Response> {
-    return oauth2Client.authorization
-      ? actions.withAuthorization({access_token: oauth2Client.authorization.access_token})
+    return oauth2Client.authorized
+      ? actions.withAuthorization(await oauth2Client.getAccessToken())
       : actions.withoutAuthorization();
   }
 }
@@ -130,4 +130,4 @@ class RefreshAndRetryStrategy extends CustomAuthorizationStrategy {
   }
 }
 
-new BearerAuthorizationMiddleware(new CustomAuthorizationStrategy());
+new BearerAuthorizationMiddleware(new RefreshAndRetryStrategy());
