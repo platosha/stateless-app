@@ -1,6 +1,9 @@
 package com.example.application.auth;
 
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,7 +44,8 @@ public class StatelessLoginHandler {
     public Map<String, String> getToken(
             @RequestParam("grant_type") String grantType,
             @RequestParam("username") String username,
-            @RequestParam("password") String password) {
+            @RequestParam("password") String password,
+            HttpServletResponse response) {
         if (!"password".equals(grantType)) {
             throw new RuntimeException("unsupported_grant_type");
         }
@@ -85,10 +89,29 @@ public class StatelessLoginHandler {
             throw new RuntimeException("invalid_grant");
         }
 
-        final Map<String, String> response = new HashMap<>();
-        response.put("access_token", signedJWT.serialize());
-        response.put("token_type", "Bearer");
-        response.put("expires_in", String.valueOf(EXPIRES_IN));
-        return response;
+        Cookie headerAndPayload = new Cookie(
+                SplitCookieToBearerTokenConverterFilter.JWT_HEADER_AND_PAYLOAD,
+                new String(signedJWT.getSigningInput(),
+                        StandardCharsets.UTF_8));
+        headerAndPayload.setSecure(true);
+        headerAndPayload.setHttpOnly(false);
+        headerAndPayload.setPath("/");
+        headerAndPayload.setMaxAge((int) EXPIRES_IN - 1);
+        response.addCookie(headerAndPayload);
+
+        Cookie signature = new Cookie(
+                SplitCookieToBearerTokenConverterFilter.JWT_SIGNATURE,
+                signedJWT.getSignature().toString());
+        signature.setHttpOnly(true);
+        signature.setSecure(true);
+        signature.setPath("/");
+        signature.setMaxAge((int) EXPIRES_IN - 1);
+        response.addCookie(signature);
+
+        final Map<String, String> responseBody = new HashMap<>();
+        responseBody.put("access_token", signedJWT.serialize());
+        responseBody.put("token_type", "Bearer");
+        responseBody.put("expires_in", String.valueOf(EXPIRES_IN));
+        return responseBody;
     }
 }

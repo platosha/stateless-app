@@ -87,7 +87,7 @@ class StatelessLoginClientMiddleware extends BearerAuthorizationMiddleware {
   }
 }
 
-client.middlewares.push(new StatelessLoginClientMiddleware());
+// client.middlewares.push(new StatelessLoginClientMiddleware());
 export default client;
 
 // Example: using custom client
