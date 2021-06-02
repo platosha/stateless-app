@@ -11,10 +11,7 @@ import {
   AfterEnterObserver,
   RouterLocation
 } from '@vaadin/router';
-import type {LoginResult} from '@vaadin/flow-frontend';
-import {
-  statelessLoginClient
-} from "Frontend/auth/token-client";
+import {login, LoginResult} from '@vaadin/flow-frontend';
 
 @customElement('login-view')
 export class LoginView extends LitElement implements AfterEnterObserver {
@@ -76,7 +73,7 @@ export class LoginView extends LitElement implements AfterEnterObserver {
       username,
       password
     } = event.detail;
-    const result = await statelessLoginClient.login(username, password);
+    const result = await login(username, password);
     this.error = result.error;
     this.errorTitle = result.errorTitle || this.errorTitle;
     this.errorMessage = result.errorMessage || this.errorMessage;
