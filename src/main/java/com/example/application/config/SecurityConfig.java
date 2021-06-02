@@ -1,6 +1,7 @@
 package com.example.application.config;
 
 import com.example.application.auth.SplitCookieToBearerTokenConverterFilter;
+import com.example.application.auth.StatelessLoginHandler;
 import com.example.application.jose.SecretKeySource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -29,6 +30,10 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .csrf().disable()
                 .sessionManagement()
                     .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                    .and()
+                .formLogin()
+                    .loginPage("/login")
+                    .successHandler(new StatelessLoginHandler())
                     .and()
                 .oauth2ResourceServer(OAuth2ResourceServerConfigurer::jwt)
                 .addFilterBefore(new SplitCookieToBearerTokenConverterFilter(),

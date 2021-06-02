@@ -3,10 +3,9 @@ package com.example.application.auth;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -17,54 +16,18 @@ import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import org.springframework.http.MediaType;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.web.authentication.WebAuthenticationDetails;
-import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 
-@Controller
-public class StatelessLoginHandler {
-    private AuthenticationManager authenticationManager;
-
-    private HttpServletRequest httpServletRequest;
-
-    public StatelessLoginHandler(AuthenticationManager authenticationManager,
-            HttpServletRequest httpServletRequest) {
-        this.authenticationManager = authenticationManager;
-        this.httpServletRequest = httpServletRequest;
+public class StatelessLoginHandler implements AuthenticationSuccessHandler {
+    public StatelessLoginHandler() {
     }
 
-    @PostMapping(value = "/auth/token", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    @ResponseBody
-    public Map<String, String> getToken(
-            @RequestParam("grant_type") String grantType,
-            @RequestParam("username") String username,
-            @RequestParam("password") String password,
-            HttpServletResponse response) {
-        if (!"password".equals(grantType)) {
-            throw new RuntimeException("unsupported_grant_type");
-        }
-
+    @Override
+    public void onAuthenticationSuccess(HttpServletRequest request,
+            HttpServletResponse response, Authentication authentication)
+            throws IOException {
         final long EXPIRES_IN = 3600L;
-
-        Authentication authentication;
-
-        try {
-            UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(
-                    username, password);
-            usernamePasswordAuthenticationToken.setDetails(
-                    new WebAuthenticationDetails(httpServletRequest));
-
-            authentication = authenticationManager
-                    .authenticate(usernamePasswordAuthenticationToken);
-        } catch (Exception exception) {
-            throw new RuntimeException("invalid_grant");
-        }
 
         final Date now = new Date();
 
@@ -90,28 +53,24 @@ public class StatelessLoginHandler {
         }
 
         Cookie headerAndPayload = new Cookie(
-                SplitCookieToBearerTokenConverterFilter.JWT_HEADER_AND_PAYLOAD,
+                SplitCookieToBearerTokenConverterFilter.JWT_HEADER_AND_PAYLOAD_COOKIE_NAME,
                 new String(signedJWT.getSigningInput(),
                         StandardCharsets.UTF_8));
         headerAndPayload.setSecure(true);
         headerAndPayload.setHttpOnly(false);
-        headerAndPayload.setPath("/");
+        headerAndPayload.setPath(request.getContextPath() + "/");
         headerAndPayload.setMaxAge((int) EXPIRES_IN - 1);
         response.addCookie(headerAndPayload);
 
         Cookie signature = new Cookie(
-                SplitCookieToBearerTokenConverterFilter.JWT_SIGNATURE,
+                SplitCookieToBearerTokenConverterFilter.JWT_SIGNATURE_COOKIE_NAME,
                 signedJWT.getSignature().toString());
         signature.setHttpOnly(true);
         signature.setSecure(true);
-        signature.setPath("/");
+        signature.setPath(request.getContextPath() + "/");
         signature.setMaxAge((int) EXPIRES_IN - 1);
         response.addCookie(signature);
 
-        final Map<String, String> responseBody = new HashMap<>();
-        responseBody.put("access_token", signedJWT.serialize());
-        responseBody.put("token_type", "Bearer");
-        responseBody.put("expires_in", String.valueOf(EXPIRES_IN));
-        return responseBody;
+        response.sendRedirect(request.getContextPath() + "/");
     }
 }
