@@ -1,71 +1,48 @@
 package com.example.application.config;
 
-import com.example.application.auth.SplitCookieToBearerTokenConverterFilter;
-import com.example.application.auth.StatelessLoginHandler;
-import com.example.application.jose.SecretKeySource;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.OctetSequenceKey;
+import com.nimbusds.jose.jwk.source.JWKSource;
+import com.nimbusds.jose.proc.SecurityContext;
+import com.nimbusds.jose.util.Base64URL;
 import org.springframework.context.annotation.Bean;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.config.annotation.web.configurers.oauth2.server.resource.OAuth2ResourceServerConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
-import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationFilter;
 
 @EnableWebSecurity
-public class SecurityConfig extends WebSecurityConfigurerAdapter {
-    //
-    // Configuration to enable JWT for endpoints
-    //
+public class SecurityConfig extends VaadinStatelessWebSecurityConfig {
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         // @formatter:off
+        super.configure(http);
+
         http
                 .csrf().disable()
                 .sessionManagement()
-                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                    .and()
-                .formLogin()
-                    .loginPage("/login")
-                    .successHandler(new StatelessLoginHandler())
-                    .and()
-                .oauth2ResourceServer(OAuth2ResourceServerConfigurer::jwt)
-                .addFilterBefore(new SplitCookieToBearerTokenConverterFilter(),
-                        BearerTokenAuthenticationFilter.class);
+                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+
+        setLoginView(http, "/login", "/logout");
         // @formatter:on
     }
 
     @Bean
-    JwtAuthenticationConverter jwtAuthenticationConverter() {
-        // Converter from "scope" claims in JWT into ROLE_ prefixed authorities.
-        JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
-        grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
-
-        JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
-        jwtAuthenticationConverter
-                .setJwtGrantedAuthoritiesConverter(grantedAuthoritiesConverter);
-        return jwtAuthenticationConverter;
+    JWKSource<SecurityContext> jwkSource() {
+        OctetSequenceKey key = new OctetSequenceKey.Builder(
+                Base64URL.from("I72kIcB1UrUQVHVUAzgweE+BLc0bF8mLv9SmrgKsQAk="))
+                .algorithm(JWSAlgorithm.HS256).build();
+        JWKSet jwkSet = new JWKSet(key);
+        return (jwkSelector, context) -> jwkSelector.select(jwkSet);
     }
-
-    //
-    // Use built-in secret key for JWT verification
-    //
 
     @Bean
     JwtDecoder jwtDecoder() {
-        // JWT decoder trusting a symmetric secret key to verify JWTs.
-        return NimbusJwtDecoder.withSecretKey(SecretKeySource.get()).build();
+        return jwtDecoder(jwkSource());
     }
-
-    //
-    // Configuration for StatelessLoginHandler
-    //
 
     @Override
     protected void configure(AuthenticationManagerBuilder auth)
@@ -78,11 +55,5 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .withUser("admin").password("{noop}admin").roles("user",
                 "admin");
         // @formatter:on
-    }
-
-    @Bean
-    @Override
-    public AuthenticationManager authenticationManagerBean() throws Exception {
-        return super.authenticationManagerBean();
     }
 }
