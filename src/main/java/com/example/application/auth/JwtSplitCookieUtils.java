@@ -1,21 +1,14 @@
 package com.example.application.auth;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
+import javax.servlet.ServletContext;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -29,72 +22,30 @@ import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ResolvableType;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
-import org.springframework.web.context.support.SpringBeanAutowiringSupport;
-import org.springframework.web.filter.GenericFilterBean;
+import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.context.support.WebApplicationContextUtils;
+import org.springframework.web.util.WebUtils;
 
-@Component
-public class JwtSplitCookieFilter extends GenericFilterBean implements Filter {
+public class JwtSplitCookieUtils {
     public static final String JWT_HEADER_AND_PAYLOAD_COOKIE_NAME = "jwt.headerAndPayload";
     public static final String JWT_SIGNATURE_COOKIE_NAME = "jwt.signature";
 
-    @Autowired
-    private JWKSource<SecurityContext> jwkSource;
-
-    @Override
-    public void doFilter(ServletRequest request, ServletResponse response,
-            FilterChain chain) throws IOException, ServletException {
-        SpringBeanAutowiringSupport.processInjectionBasedOnCurrentContext(this);
-
-        final String tokenFromSplitCookies = getTokenFromSplitCookies(
-                (HttpServletRequest) request);
-        if (tokenFromSplitCookies != null) {
-            HttpServletRequestWrapper requestWrapper = new HttpServletRequestWrapper(
-                    (HttpServletRequest) request) {
-                @Override
-                public String getHeader(String headerName) {
-                    if ("Authorization".equals(headerName)) {
-                        return "Bearer " + tokenFromSplitCookies;
-                    }
-                    return super.getHeader(headerName);
-                }
-            };
-            chain.doFilter(requestWrapper, response);
-        } else {
-            chain.doFilter(request, response);
-        }
-
-        Authentication authentication = SecurityContextHolder.getContext()
-                .getAuthentication();
-        if (authentication == null) {
-            // Token authentication failed — remove the cookies
-            removeJwtSplitCookies((HttpServletRequest) request,
-                    (HttpServletResponse) response);
-        } else {
-            setJwtSplitCookiesIfNecessary((HttpServletRequest) request,
-                    (HttpServletResponse) response, authentication);
-        }
-    }
-
-    private String getTokenFromSplitCookies(HttpServletRequest request) {
+    public static String getTokenFromSplitCookies(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) {
             return null;
         }
 
-        Cookie jwtHeaderAndPayload = Stream.of(cookies)
-                .filter(cookie -> JWT_HEADER_AND_PAYLOAD_COOKIE_NAME
-                        .equals(cookie.getName())).findFirst().orElse(null);
+        Cookie jwtHeaderAndPayload = WebUtils
+                .getCookie(request, JWT_HEADER_AND_PAYLOAD_COOKIE_NAME);
         if (jwtHeaderAndPayload == null) {
             return null;
         }
 
-        Cookie jwtSignature = Stream.of(cookies)
-                .filter(cookie -> JWT_SIGNATURE_COOKIE_NAME
-                        .equals(cookie.getName())).findFirst().orElse(null);
+        Cookie jwtSignature = WebUtils
+                .getCookie(request, JWT_SIGNATURE_COOKIE_NAME);
         if (jwtSignature == null) {
             return null;
         }
@@ -102,8 +53,17 @@ public class JwtSplitCookieFilter extends GenericFilterBean implements Filter {
         return jwtHeaderAndPayload.getValue() + "." + jwtSignature.getValue();
     }
 
-    private void setJwtSplitCookiesIfNecessary(HttpServletRequest request,
+    public static void setJwtSplitCookiesIfNecessary(HttpServletRequest request,
             HttpServletResponse response, Authentication authentication) {
+        ServletContext servletContext = request.getServletContext();
+        WebApplicationContext webApplicationContext = WebApplicationContextUtils
+                .getWebApplicationContext(servletContext);
+
+        JWKSource<SecurityContext> jwkSource = (JWKSource<SecurityContext>) webApplicationContext
+                .getBean(webApplicationContext.getBeanNamesForType(
+                        ResolvableType.forClassWithGenerics(JWKSource.class,
+                                SecurityContext.class))[0]);
+
         final long EXPIRES_IN = 3600L;
 
         final Date now = new Date();
@@ -121,7 +81,7 @@ public class JwtSplitCookieFilter extends GenericFilterBean implements Filter {
             JWKSelector jwkSelector = new JWKSelector(
                     JWKMatcher.forJWSHeader(jwsHeader));
 
-            List<JWK> jwks = this.jwkSource.get(jwkSelector, null);
+            List<JWK> jwks = jwkSource.get(jwkSelector, null);
             JWK jwk = jwks.get(0);
 
             JWSSigner signer = new DefaultJWSSignerFactory()
@@ -129,14 +89,14 @@ public class JwtSplitCookieFilter extends GenericFilterBean implements Filter {
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                     .subject(authentication.getName()).issuer("statelessapp")
                     .issueTime(now)
-                    .expirationTime(new Date(now.getTime() + EXPIRES_IN))
+                    .expirationTime(new Date(now.getTime() + EXPIRES_IN * 1000))
                     .claim("scope", scope).build();
             signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256),
                     claimsSet);
             signedJWT.sign(signer);
 
             Cookie headerAndPayload = new Cookie(
-                    JwtSplitCookieFilter.JWT_HEADER_AND_PAYLOAD_COOKIE_NAME,
+                    JWT_HEADER_AND_PAYLOAD_COOKIE_NAME,
                     new String(signedJWT.getSigningInput(),
                             StandardCharsets.UTF_8));
             headerAndPayload.setSecure(true);
@@ -145,8 +105,7 @@ public class JwtSplitCookieFilter extends GenericFilterBean implements Filter {
             headerAndPayload.setMaxAge((int) EXPIRES_IN - 1);
             response.addCookie(headerAndPayload);
 
-            Cookie signature = new Cookie(
-                    JwtSplitCookieFilter.JWT_SIGNATURE_COOKIE_NAME,
+            Cookie signature = new Cookie(JWT_SIGNATURE_COOKIE_NAME,
                     signedJWT.getSignature().toString());
             signature.setHttpOnly(true);
             signature.setSecure(true);
@@ -159,7 +118,7 @@ public class JwtSplitCookieFilter extends GenericFilterBean implements Filter {
 
     }
 
-    private void removeJwtSplitCookies(HttpServletRequest request,
+    public static void removeJwtSplitCookies(HttpServletRequest request,
             HttpServletResponse response) {
         Cookie jwtHeaderAndPayloadRemove = new Cookie(
                 JWT_HEADER_AND_PAYLOAD_COOKIE_NAME, null);

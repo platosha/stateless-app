@@ -26,6 +26,8 @@ public class SecurityConfig extends VaadinStatelessWebSecurityConfig {
                 .sessionManagement()
                     .sessionCreationPolicy(SessionCreationPolicy.STATELESS);
 
+        setJwtSplitCookieAuthentication(http, "statelessapp", 3600,
+                JWSAlgorithm.HS256);
         setLoginView(http, "/login", "/logout");
         // @formatter:on
     }
@@ -37,11 +39,6 @@ public class SecurityConfig extends VaadinStatelessWebSecurityConfig {
                 .algorithm(JWSAlgorithm.HS256).build();
         JWKSet jwkSet = new JWKSet(key);
         return (jwkSelector, context) -> jwkSelector.select(jwkSet);
-    }
-
-    @Bean
-    JwtDecoder jwtDecoder() {
-        return jwtDecoder(jwkSource());
     }
 
     @Override
