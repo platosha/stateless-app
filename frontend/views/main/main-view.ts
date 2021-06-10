@@ -10,7 +10,6 @@ import { views } from '../../routes';
 import { appStore } from '../../stores/app-store';
 import { Layout } from '../view';
 import {BeforeEnterObserver} from "@vaadin/router";
-import {LoginView} from "Frontend/views/login/login-view";
 
 interface RouteInfo {
   path: string;
@@ -71,6 +70,6 @@ export class MainView extends Layout implements BeforeEnterObserver {
   }
 
   async onBeforeEnter() {
-    await LoginView.openAsPopup();
+    // await LoginView.openAsPopup();
   }
 }

@@ -7,11 +7,9 @@ import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.nimbusds.jose.util.Base64URL;
 import org.springframework.context.annotation.Bean;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 
 @EnableWebSecurity
 public class SecurityConfig extends VaadinStatelessWebSecurityConfig {
@@ -24,11 +22,14 @@ public class SecurityConfig extends VaadinStatelessWebSecurityConfig {
         http
                 .csrf().disable()
                 .sessionManagement()
-                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                .and().oauth2Login()
+                .and().logout()
+                    .logoutUrl("/logout");
 
         setJwtSplitCookieAuthentication(http, "statelessapp", 3600,
                 JWSAlgorithm.HS256);
-        setLoginView(http, "/login", "/logout");
+//        setLoginView(http, "/login", "/logout");
         // @formatter:on
     }
 
@@ -39,18 +40,5 @@ public class SecurityConfig extends VaadinStatelessWebSecurityConfig {
                 .algorithm(JWSAlgorithm.HS256).build();
         JWKSet jwkSet = new JWKSet(key);
         return (jwkSelector, context) -> jwkSelector.select(jwkSet);
-    }
-
-    @Override
-    protected void configure(AuthenticationManagerBuilder auth)
-            throws Exception {
-        // @formatter:off
-        auth
-                .inMemoryAuthentication()
-                .withUser("user").password("{noop}user").roles("user")
-                .and()
-                .withUser("admin").password("{noop}admin").roles("user",
-                "admin");
-        // @formatter:on
     }
 }
