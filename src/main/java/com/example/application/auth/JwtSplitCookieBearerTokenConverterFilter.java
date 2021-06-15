@@ -10,11 +10,16 @@ import javax.servlet.http.HttpServletRequestWrapper;
 import java.io.IOException;
 
 public class JwtSplitCookieBearerTokenConverterFilter implements Filter {
+    JwtSplitCookieService jwtSplitCookieService;
+
+    public JwtSplitCookieBearerTokenConverterFilter(JwtSplitCookieService jwtSplitCookieService) {
+        this.jwtSplitCookieService = jwtSplitCookieService;
+    }
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response,
             FilterChain chain) throws IOException, ServletException {
-        final String tokenFromSplitCookies = JwtSplitCookieUtils
+        final String tokenFromSplitCookies = jwtSplitCookieService
                 .getTokenFromSplitCookies((HttpServletRequest) request);
         if (tokenFromSplitCookies != null) {
             HttpServletRequestWrapper requestWrapper = new HttpServletRequestWrapper(

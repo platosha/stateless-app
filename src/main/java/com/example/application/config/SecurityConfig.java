@@ -1,5 +1,6 @@
 package com.example.application.config;
 
+import com.example.application.auth.JwtClaimsSource;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.OctetSequenceKey;
@@ -10,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 
 @EnableWebSecurity
 public class SecurityConfig extends VaadinStatelessWebSecurityConfig {
@@ -28,9 +30,17 @@ public class SecurityConfig extends VaadinStatelessWebSecurityConfig {
                     .logoutUrl("/logout");
 
         setJwtSplitCookieAuthentication(http, "statelessapp", 3600,
-                JWSAlgorithm.HS256);
+                JWSAlgorithm.HS256, this.jwtClaimsProvider());
 //        setLoginView(http, "/login", "/logout");
         // @formatter:on
+    }
+
+    @Bean
+    JwtClaimsSource jwtClaimsProvider() {
+        return (authentication ->
+                        authentication.getPrincipal() instanceof OidcUser
+                                ? ((OidcUser) authentication.getPrincipal())
+                                .getUserInfo() : null);
     }
 
     @Bean

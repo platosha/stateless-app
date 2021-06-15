@@ -1,12 +1,14 @@
 package com.example.application.config;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.example.application.auth.JwtClaimsSource;
 import com.example.application.auth.JwtSplitCookieBearerTokenConverterFilter;
 import com.example.application.auth.JwtSplitCookieManagementFilter;
-import com.example.application.auth.JwtSplitCookieUtils;
+import com.example.application.auth.JwtSplitCookieService;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.JWSKeySelector;
@@ -21,6 +23,7 @@ import org.springframework.security.config.annotation.web.configurers.FormLoginC
 import org.springframework.security.config.annotation.web.configurers.LogoutConfigurer;
 import org.springframework.security.config.annotation.web.configurers.oauth2.client.OAuth2LoginConfigurer;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.resource.OAuth2ResourceServerConfigurer;
+import org.springframework.security.oauth2.core.oidc.OidcUserInfo;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -32,16 +35,26 @@ import com.vaadin.flow.spring.security.VaadinWebSecurityConfigurerAdapter;
 
 public class VaadinStatelessWebSecurityConfig
         extends VaadinWebSecurityConfigurerAdapter {
-    @SuppressWarnings("unchecked")
     protected void setJwtSplitCookieAuthentication(HttpSecurity http,
             String issuer, long expires_in, JWSAlgorithm algorithm)
             throws Exception {
+        setJwtSplitCookieAuthentication(http, issuer, expires_in, algorithm,
+                (context) -> new OidcUserInfo(Collections.emptyMap()));
+    }
+
+    @SuppressWarnings("unchecked")
+    protected void setJwtSplitCookieAuthentication(HttpSecurity http,
+            String issuer, long expires_in, JWSAlgorithm algorithm,
+            JwtClaimsSource jwtClaimsSource) throws Exception {
+        final JwtSplitCookieService jwtSplitCookieService = new JwtSplitCookieService(
+                jwtClaimsSource);
+
         // @formatter:off
         http
                 .oauth2ResourceServer(OAuth2ResourceServerConfigurer::jwt)
-                .addFilterAfter(new JwtSplitCookieBearerTokenConverterFilter(),
+                .addFilterAfter(new JwtSplitCookieBearerTokenConverterFilter(jwtSplitCookieService),
                         SecurityContextPersistenceFilter.class)
-                .addFilterAfter(new JwtSplitCookieManagementFilter(),
+                .addFilterAfter(new JwtSplitCookieManagementFilter(jwtSplitCookieService),
                         SwitchUserFilter.class);
         // @formatter:on
 
@@ -51,7 +64,7 @@ public class VaadinStatelessWebSecurityConfig
                                 login -> ((AbstractAuthenticationFilterConfigurer) login)
                                         .successHandler(
                                                 (request, response, authentication) -> {
-                                                    JwtSplitCookieUtils
+                                                    jwtSplitCookieService
                                                             .setJwtSplitCookiesIfNecessary(
                                                                     request,
                                                                     response,
@@ -62,7 +75,7 @@ public class VaadinStatelessWebSecurityConfig
         http.getConfigurers(LogoutConfigurer.class).forEach(
                 logout -> ((LogoutConfigurer) logout).addLogoutHandler(
                         ((request, response, authentication) -> {
-                            JwtSplitCookieUtils
+                            jwtSplitCookieService
                                     .removeJwtSplitCookies(request, response);
                         })));
     }

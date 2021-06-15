@@ -14,6 +14,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 public class JwtSplitCookieManagementFilter implements Filter {
+    private JwtSplitCookieService jwtSplitCookieService;
+
+    public JwtSplitCookieManagementFilter(JwtSplitCookieService jwtSplitCookieService) {
+        this.jwtSplitCookieService = jwtSplitCookieService;
+    }
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response,
@@ -24,13 +29,14 @@ public class JwtSplitCookieManagementFilter implements Filter {
         if (authentication == null ||
                 authentication instanceof AnonymousAuthenticationToken) {
             // Token authentication failed — remove the cookies
-            JwtSplitCookieUtils
+            jwtSplitCookieService
                     .removeJwtSplitCookies((HttpServletRequest) request,
                             (HttpServletResponse) response);
         } else {
-            JwtSplitCookieUtils
-                    .setJwtSplitCookiesIfNecessary((HttpServletRequest) request,
-                            (HttpServletResponse) response, authentication);
+            // TODO: update token to prevent premature expiration
+//            jwtSplitCookieService
+//                    .setJwtSplitCookiesIfNecessary((HttpServletRequest) request,
+//                            (HttpServletResponse) response, authentication);
         }
 
         chain.doFilter(request, response);

@@ -5,8 +5,10 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -24,15 +26,22 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import org.springframework.core.ResolvableType;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.core.ClaimAccessor;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 import org.springframework.web.util.WebUtils;
 
-public class JwtSplitCookieUtils {
+public class JwtSplitCookieService {
     public static final String JWT_HEADER_AND_PAYLOAD_COOKIE_NAME = "jwt.headerAndPayload";
     public static final String JWT_SIGNATURE_COOKIE_NAME = "jwt.signature";
 
-    public static String getTokenFromSplitCookies(HttpServletRequest request) {
+    private JwtClaimsSource claimsSource;
+
+    public JwtSplitCookieService(JwtClaimsSource claimsSource) {
+        this.claimsSource = claimsSource;
+    }
+
+    public String getTokenFromSplitCookies(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) {
             return null;
@@ -53,7 +62,7 @@ public class JwtSplitCookieUtils {
         return jwtHeaderAndPayload.getValue() + "." + jwtSignature.getValue();
     }
 
-    public static void setJwtSplitCookiesIfNecessary(HttpServletRequest request,
+    public void setJwtSplitCookiesIfNecessary(HttpServletRequest request,
             HttpServletResponse response, Authentication authentication) {
         ServletContext servletContext = request.getServletContext();
         WebApplicationContext webApplicationContext = WebApplicationContextUtils
@@ -74,6 +83,10 @@ public class JwtSplitCookieUtils {
                 .map(a -> a.substring(rolePrefix.length()))
                 .collect(Collectors.joining(" "));
 
+        final ClaimAccessor claimAccessor = claimsSource.apply(authentication);
+        final Map<String, Object> customClaims = claimAccessor != null ?
+                claimAccessor.getClaims() : Collections.emptyMap();
+
         SignedJWT signedJWT;
         try {
             JWSAlgorithm jwsAlgorithm = JWSAlgorithm.HS256;
@@ -86,11 +99,13 @@ public class JwtSplitCookieUtils {
 
             JWSSigner signer = new DefaultJWSSignerFactory()
                     .createJWSSigner(jwk, jwsAlgorithm);
-            JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
+            JWTClaimsSet.Builder jwtClaimsSetBuilder = new JWTClaimsSet.Builder()
                     .subject(authentication.getName()).issuer("statelessapp")
                     .issueTime(now)
                     .expirationTime(new Date(now.getTime() + EXPIRES_IN * 1000))
-                    .claim("scope", scope).build();
+                    .claim("scope", scope);
+            customClaims.forEach(jwtClaimsSetBuilder::claim);
+            JWTClaimsSet claimsSet = jwtClaimsSetBuilder.build();
             signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256),
                     claimsSet);
             signedJWT.sign(signer);
@@ -118,7 +133,7 @@ public class JwtSplitCookieUtils {
 
     }
 
-    public static void removeJwtSplitCookies(HttpServletRequest request,
+    public void removeJwtSplitCookies(HttpServletRequest request,
             HttpServletResponse response) {
         Cookie jwtHeaderAndPayloadRemove = new Cookie(
                 JWT_HEADER_AND_PAYLOAD_COOKIE_NAME, null);
