@@ -26,7 +26,6 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import org.springframework.core.ResolvableType;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.core.ClaimAccessor;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 import org.springframework.web.util.WebUtils;
@@ -83,9 +82,11 @@ public class JwtSplitCookieService {
                 .map(a -> a.substring(rolePrefix.length()))
                 .collect(Collectors.joining(" "));
 
-        final ClaimAccessor claimAccessor = claimsSource.apply(authentication);
-        final Map<String, Object> customClaims = claimAccessor != null ?
-                claimAccessor.getClaims() : Collections.emptyMap();
+        final JwtClaims claimAccessor = claimsSource
+                .getClaimsFor(authentication);
+        final Map<String, Object> customClaims =
+                claimAccessor != null ? claimAccessor.getClaims()
+                        : Collections.emptyMap();
 
         SignedJWT signedJWT;
         try {

@@ -16,6 +16,7 @@ import com.nimbusds.jose.proc.JWSVerificationKeySelector;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.nimbusds.jwt.proc.ConfigurableJWTProcessor;
 import com.nimbusds.jwt.proc.DefaultJWTProcessor;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractAuthenticationFilterConfigurer;
@@ -23,7 +24,7 @@ import org.springframework.security.config.annotation.web.configurers.FormLoginC
 import org.springframework.security.config.annotation.web.configurers.LogoutConfigurer;
 import org.springframework.security.config.annotation.web.configurers.oauth2.client.OAuth2LoginConfigurer;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.resource.OAuth2ResourceServerConfigurer;
-import org.springframework.security.oauth2.core.oidc.OidcUserInfo;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -38,8 +39,16 @@ public class VaadinStatelessWebSecurityConfig
     protected void setJwtSplitCookieAuthentication(HttpSecurity http,
             String issuer, long expires_in, JWSAlgorithm algorithm)
             throws Exception {
+        ApplicationContext context = http
+                .getSharedObject(ApplicationContext.class);
+
+        JwtClaimsSource claimsSource = context.getBean(JwtClaimsSource.class);
+        if (claimsSource == null) {
+            claimsSource = (Authentication p) -> Collections::emptyMap;
+        }
+
         setJwtSplitCookieAuthentication(http, issuer, expires_in, algorithm,
-                (context) -> new OidcUserInfo(Collections.emptyMap()));
+                claimsSource);
     }
 
     @SuppressWarnings("unchecked")
