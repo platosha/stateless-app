@@ -1,5 +1,6 @@
-import { RouterLocation } from '@vaadin/router';
-import { makeAutoObservable } from 'mobx';
+import {RouterLocation} from '@vaadin/router';
+import {makeAutoObservable} from 'mobx';
+import {authenticationStore} from "Frontend/stores/authentication-store";
 
 export class AppStore {
   applicationName = 'Stateless App';
@@ -9,8 +10,11 @@ export class AppStore {
 
   currentViewTitle = '';
 
+  authenticationStore;
+
   constructor() {
     makeAutoObservable(this);
+    this.authenticationStore = authenticationStore;
   }
 
   setLocation(location: RouterLocation) {
@@ -24,4 +28,5 @@ export class AppStore {
     this.currentViewTitle = (location?.route as any)?.title || '';
   }
 }
+
 export const appStore = new AppStore();
